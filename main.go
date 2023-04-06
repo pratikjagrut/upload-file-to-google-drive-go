@@ -1,20 +1,26 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
+)
+
+var (
+	credFile  = "credentials.json"
+	tokenFile = "token.json"
 )
 
 func main() {
 	// Load credentials file
-	credentialsFile, err := ioutil.ReadFile("credentials.json")
+	credentialsFile, err := os.ReadFile(credFile)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -26,16 +32,22 @@ func main() {
 	}
 
 	// Create oauth2 token
-	tokenFile := "token.json"
 	token, err := tokenFromFile(tokenFile)
 	if err != nil {
 		token = getTokenFromWeb(config)
 		saveToken(tokenFile, token)
 	}
 
+	if !token.Valid() {
+		token, err = refreshToken(config, token)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	// Create drive client with oauth2 token
-	client := config.Client(oauth2.NoContext, token)
-	srv, err := drive.New(client)
+	client := config.Client(context.TODO(), token)
+	srv, err := drive.NewService(context.TODO(), option.WithHTTPClient(client))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Drive client: %v", err)
 	}
@@ -82,7 +94,7 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 		log.Fatalf("Unable to read authorization code: %v", err)
 	}
 
-	token, err := config.Exchange(oauth2.NoContext, code)
+	token, err := config.Exchange(context.TODO(), code)
 	if err != nil {
 		log.Fatalf("Unable to retrieve token from web: %v", err)
 	}
@@ -96,5 +108,26 @@ func saveToken(file string, token *oauth2.Token) {
 		log.Fatalf("Unable to cache oauth token: %v", err)
 	}
 	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	err = json.NewEncoder(f).Encode(token)
+	if err != nil {
+		log.Fatalf("Unable to cache oauth token: %v", err)
+	}
+}
+
+// refreshToken refreshes an OAuth2 token and saves it to a file
+func refreshToken(config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
+	// Check if the token is already expired
+	if !token.Valid() {
+		// If it is, refresh the token
+		newToken, err := config.TokenSource(context.Background(), token).Token()
+		if err != nil {
+			return nil, fmt.Errorf("failed to refresh token: %v", err)
+		}
+
+		// Save the new token to a file
+		saveToken("token.json", newToken)
+		return newToken, nil
+	}
+
+	return token, nil
 }
