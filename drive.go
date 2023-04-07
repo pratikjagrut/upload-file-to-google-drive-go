@@ -14,14 +14,14 @@ import (
 )
 
 var (
-	credFile   = "credentials.json"
-	tokenFile  = "token.json"
-	uploadFile = "example.txt"
+	CRED_FILE   = "credentials.json"
+	TOKEN_FILE  = "token.json"
+	UPLOAD_FILE = "example.txt"
 )
 
 func UploadFileToDrive() error {
 	// Load credentials file
-	credentialsFile, err := os.ReadFile(credFile)
+	credentialsFile, err := os.ReadFile(CRED_FILE)
 	if err != nil {
 		return fmt.Errorf("Unable to read client secret file: %v", err)
 	}
@@ -33,7 +33,7 @@ func UploadFileToDrive() error {
 	}
 
 	// Create oauth2 token
-	token, err := tokenFromFile(tokenFile)
+	token, err := tokenFromFile(TOKEN_FILE)
 	if err != nil {
 		token, err = getTokenFromWeb(config)
 		if err != nil {
@@ -56,7 +56,7 @@ func UploadFileToDrive() error {
 	}
 
 	// Open the file to upload
-	file, err := os.Open(uploadFile)
+	file, err := os.Open(UPLOAD_FILE)
 	if err != nil {
 		return fmt.Errorf("Unable to open file: %v", err)
 	}
@@ -64,7 +64,7 @@ func UploadFileToDrive() error {
 
 	// Create the file metadata
 	fileMetadata := &drive.File{
-		Name: uploadFile,
+		Name: UPLOAD_FILE,
 	}
 
 	// Upload the file to Google Drive
@@ -102,7 +102,7 @@ func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to retrieve token from web: %v", err)
 	}
-	err = saveToken(tokenFile, token)
+	err = saveToken(TOKEN_FILE, token)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func refreshToken(config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, er
 		return nil, fmt.Errorf("failed to refresh token: %v", err)
 	}
 	// Save the new token to a file
-	err = saveToken(tokenFile, newToken)
+	err = saveToken(TOKEN_FILE, newToken)
 	if err != nil {
 		return nil, err
 	}
